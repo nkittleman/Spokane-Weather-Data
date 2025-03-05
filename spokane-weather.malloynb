@@ -1,0 +1,86 @@
+>>>malloy
+source: GEGweather is duckdb.table('./spokane-temp-1.csv') extend {
+    rename: day1 is `Date`
+    measure: 
+    snow_days is count() {where: Snowfall > 0.01}
+    colder_than_15 is count() {where: MaxTemperature < 15}
+    warmer_100 is count() {where: MaxTemperature > 100}
+    heavy_snow_days is count() {where: Snowfall > 6}
+    rain_with_snow_days is count() {where: Snowfall > 1 and Precipitation > .3}
+    num_days is count()
+    snow_on_ground_days is count() {where: SnowDepth > 0}
+    total_rainfall is sum(Precipitation)
+    average_rainfall is avg(Precipitation)
+    --
+    heavy_rain_days is count() {where: Precipitation > 6 and Precipitation < 10 and Snowfall = 0}
+    below_freezing is count() {where: MinTemperature < 32}
+    hot_days is count() {where: MaxTemperature > 80}
+    cold_days is count() {where: MinTemperature < 40}
+    moderate_days is count() {where: MaxTemperature < 70 and MinTemperature > 40}
+    warm_days is count() {where: MaxTemperature < 80 and MinTemperature > 70}
+    extreme_heat_days is count() {where: MaxTemperature > 110}
+    extreme_snow_days is count() {where: Snowfall > 10}
+    extreme_rain_days is count() {where: Precipitation > 10 and Snowfall = 0}
+    extreme_cold_days is count() {where: MinTemperature < 0}
+    extreme_difference_days is count() {where: high_low_diff > 30}
+    rain_days is count() {where: Precipitation > .01 and Snowfall = 0}
+    moderate_rain_days is count() {where: Precipitation > 1 and Precipitation < 6 and Snowfall = 0}
+    moderate_snow_days is count() {where: Snowfall > 1 and Snowfall < 6}
+    no_difference_days is count() {where: high_low_diff = 0}
+    dimension:
+    high_low_diff is MaxTemperature - MinTemperature
+    MaxTemp_str is MaxTemperature::string
+    day_str is day1::string
+}
+>>>malloy
+# line_chart
+run: GEGweather -> {
+    group_by: day1.year
+    aggregate: snow_days
+    --limit: 10000000
+}
+>>>malloy
+# line_chart
+run: GEGweather -> {
+    group_by: day1.year
+    aggregate: colder_than_15
+}
+>>>malloy
+run: GEGweather -> {
+    group_by: day1.year
+    aggregate: snow_on_ground_days
+    order_by: snow_on_ground_days
+}
+>>>malloy
+run: GEGweather -> {
+    group_by: month_of_year is month(day1)
+    aggregate: average_rainfall
+    order_by: average_rainfall desc
+    where: day1.year < @2000 and day1.year > @1989
+}
+>>>malloy
+run: GEGweather -> {
+    group_by:
+    e1 is replace('#null', '#null', '')
+    e2 is replace('$56,000','$', '')
+    e3 is replace('unkown', 'unkown', '')
+}
+>>>malloy
+source: companies_table is duckdb.sql("""
+SELECT * FROM (values
+('apple', '#null', '34,000'),
+('mcdonalds', '#null', '$34,000'),
+('mcdonalds', '#null', '$34,000'),
+('starbucks', '#null', '$34,000'),
+('starbucks', '#null', '$34,000'),
+('taco bell', '#null', '$35,000'),
+('pizza hut', '#null', '$34,000'),
+
+
+)
+companies (name, dimn, value)
+""") extend {
+    dimension: value_no_dollar is replace(value, '$', '')::number
+    dimension: value_no_comma is replace(value, ',', '')::number
+    dimension: dim_no_nulls is replace(dimn, '#null', '') 
+}
